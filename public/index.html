@@ -1,0 +1,117 @@
+<!-- public/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Text-to-BPMN 2.0</title>
+
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- BPMN-JS libraries -->
+  <script src="https://unpkg.com/bpmn-js@13.1.0/dist/bpmn-modeler.development.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/bpmn-js@13.1.0/dist/assets/diagram-js.css">
+  <link rel="stylesheet" href="https://unpkg.com/bpmn-js@13.1.0/dist/assets/bpmn-font/css/bpmn.css">
+  <link rel="stylesheet" href="https://unpkg.com/bpmn-js@13.1.0/dist/assets/bpmn-js.css">
+
+  <!-- Icons -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/boxicons/2.1.4/css/boxicons.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+  <!-- OCR (Tesseract.js) and PDF.js -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@2.1.5/dist/tesseract.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+
+  <!-- Markdown rendering + syntax highlight -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
+  <!-- custom style -->
+  <link rel="stylesheet" href="/css/style.css">
+
+</head>
+<body>
+  <div class="layout" id="layout">
+    <!-- Sidebar (chat interface) -->
+    <div class="sidebar" id="sidebar">
+      <div class="chat-header">Text-to-BPMN 2.0</div>
+      <div id="chat-log" class="chat-log"></div>
+
+      <div class="file-drop-area" id="file-drop-area">
+        <input type="file" id="file-input" multiple accept=".txt,.pdf,image/*">
+        <p>Drag image or .txt/.pdf files here to add to chat</p>
+      </div>
+
+      <div class="input-wrap">
+  <!-- Combined block: textarea and toggle -->
+  <div class="textarea-container">
+    <textarea id="chat-message" rows="1" placeholder="Insert your process description..."></textarea>
+
+    <div class="model-toggle-wrap">
+      <button id="model-toggle" class="model-toggle" type="button" title="Use DeepSeek Reasoner">
+        Reasoner: <span id="model-status">Off</span>
+      </button>
+      <select id="global-model-select" class="global-model-select">
+        <option value="deepseek" selected>DeepSeek</option>
+        <option value="chatgpt">ChatGPT</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Submit button -->
+  <button id="send-btn" aria-label="Send message">
+    <svg viewBox="0 0 24 24"><path d="M22 2 11 13" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 2 15 22 11 13 2 9 22 2Z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </button>
+
+      <!-- Input footer (guide) -->
+      <div class="input-footer">
+        <span class="input-hint">Press Shift + Enter for new line</span>
+        <a href="#" class="template-link" id="template-link">Prompt Guide
+          <svg viewBox="0 0 24 24" style="transform: rotate(180deg);"><path d="M7 10l5 5 5-5z" /></svg>
+        </a>
+        <div class="template-popup" id="template-popup">
+          <strong>Prompt Guide:</strong>
+          <ul>
+            <li>Choose first you prefered model.</li>
+            <li>Describe your process clearly</li>
+            <li>Use tasks, events, gateways explicitly.</li>
+            <li>Mention BPMN elements needed.</li>
+            <li>Upload files if necessary.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    </div>
+
+    <!-- Diagram area -->
+    <div class="diagram-pane">
+      <div class="chat-header">Flowchart</div>
+      <button class="fullscreen-toggle" id="toggleFullscreen">
+        <svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm10 3h-3v2h5v-5h-2v3zM7 7h3V5H5v5h2V7zm10 2h2V5h-5v2h3v2z"/></svg>
+        <span id="fullscreen-label">Expand</span>
+      </button>
+      <div id="canvas"></div>    
+
+      <div class="diagram-toolbar">
+        <div class="button-group">
+          <div class="zoom-group">
+            <button id="zoom-in" title="Zoom In"><i class="fa-solid fa-plus"></i></button>
+            <button id="zoom-out" title="Zoom Out"><i class="fa-solid fa-minus"></i></button>
+            <button id="zoom-reset" title="Reset Zoom"><i class="fa-solid fa-up-right-and-down-left-from-center"></i></button>
+          </div>
+
+          <button id="autoLayout"><i class="fa-solid fa-wand-magic-sparkles"></i> Auto Layout</button>
+        </div>
+        <div class="button-group">
+          <button id="exportSVG"><i class='bx bx-image'></i>Download Image</button>
+          <button id="exportXML"><i class='bx bx-download'></i>Export BPMN</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- main JS logic -->
+  <script src="/js/bundle-app.js"></script>
+ </body>
+</html>
