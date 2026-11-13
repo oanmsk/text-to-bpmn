@@ -1,22 +1,15 @@
 // Copyright (c) 2025 Davide Chen
 // SPDX-License-Identifier: MIT
+// Updated to remove bpmnlint dependencies for easier deployment
 
 import * as BpmnAutoLayout from 'bpmn-auto-layout';
 import BpmnModeler from 'bpmn-js/lib/Modeler';
-import lintModule   from 'bpmn-js-bpmnlint';
-import lintConfig   from '../.bpmnlintrc';   // grazie al plug-in Rollup
 import { marked } from 'marked';
 
-/* ───────────  MODELER + LINTER ─────────── */
+/* ───────────  MODELER ─────────── */
 const modeler = new BpmnModeler({
-  container: '#canvas',
-
-  additionalModules: [ lintModule ],
-  linting: { bpmnlint: lintConfig }
+  container: '#canvas'
 });
-
-// active linting panel right away
-modeler.get('linting').toggle();
 
 const chatLog = document.getElementById('chat-log');
 const chatInput = document.getElementById('chat-message');
@@ -24,6 +17,9 @@ const sidebar = document.getElementById('sidebar');
 const fullscreenLabel = document.getElementById('fullscreen-label');
 const fileDrop = document.getElementById('file-drop-area');
 const fileInput = document.getElementById('file-input');
+
+// Выносим modelStatus наверх, чтобы он был доступен во всех функциях
+const modelStatus = document.getElementById('model-status');
 
 // For Expand || Collapse button
 let isFullscreen = false;
@@ -33,9 +29,7 @@ function toggleFullscreen() {
   fullscreenLabel.textContent = isFullscreen ? 'Collapse' : 'Expand';
 }
 
-
 /* ──── LOAD DEFAULT BPMN DIAGRAM FROM EXTERNAL FILE ───── */
-
 const defaultDiagramURL = '../diagram/default.bpmn';
 
 fetch(defaultDiagramURL)
@@ -59,9 +53,7 @@ function autoResize(el) {
   el.style.height = Math.min(el.scrollHeight, 160) + 'px';
 }
 
-
 /* ────  CHAT HISTORY LAYOUT  ───── */
-
 function sendMSG() {
   const text = chatInput.value.trim();
   if (!text) return;
@@ -69,7 +61,8 @@ function sendMSG() {
   // 1. Show user message
   const userMessage = document.createElement('div');
   userMessage.className = 'chat-msg user';
-  userMessage.innerHTML = `<div class="msg-header">User</div><div class="msg-content">${text}</div>`;  chatLog.appendChild(userMessage);
+  userMessage.innerHTML = `<div class="msg-header">User</div><div class="msg-content">${text}</div>`;  
+  chatLog.appendChild(userMessage);
   chatLog.scrollTop = chatLog.scrollHeight;
 
   // 2. Reset textarea
@@ -89,11 +82,9 @@ chatInput.addEventListener('keydown', e => {
 });
 
 /* ─────────── SENDING PROMPT TO SERVER ─────────── */
-
 async function callModelAPI(prompt, onDataChunk) {
   const model = document.getElementById('global-model-select').value;
-  const reasoner = document.getElementById('model-status').innerText.trim().toLowerCase() === 'on';
- // true or false
+  const reasoner = modelStatus.innerText.trim().toLowerCase() === 'on';
 
   const response = await fetch('/api/process', {
     method: 'POST',
@@ -111,7 +102,7 @@ async function callModelAPI(prompt, onDataChunk) {
 
     pendingBuffer += decoder.decode(value, { stream: true });
     let lines = pendingBuffer.split('\n');
-    pendingBuffer = lines.pop(); // salva l’ultima riga incompleta per dopo
+    pendingBuffer = lines.pop();
 
     for (let line of lines) {
       line = line.trim();
@@ -124,7 +115,6 @@ async function callModelAPI(prompt, onDataChunk) {
         const parsed = JSON.parse(jsonStr);
         const delta = parsed?.choices?.[0]?.delta;
 
-        // Read the chunk from one of the two models
         const chunk =
           typeof delta?.reasoning_content === 'string'
             ? delta.reasoning_content
@@ -145,8 +135,6 @@ async function callModelAPI(prompt, onDataChunk) {
 } 
 
 /* ─────────── MESSAGE HANDLING ─────────── */
-
-// Creates and shows the "typing…" indicator. 
 function showTypingIndicator() {
   const indicator = document.createElement('div');
   indicator.className = 'chat-msg bot';
@@ -157,7 +145,6 @@ function showTypingIndicator() {
   return indicator;
 }
 
-// Creates the bot message wrapper (before adding content).
 function createBotMessage() {
   const el = document.createElement('div');
   el.className = 'chat-msg bot';
@@ -167,8 +154,6 @@ function createBotMessage() {
 }
 
 /* ─────────── STREAM HANDLING ─────────── */
-
-// Maintains shared state during chunked response
 function initStreamContext() {
   return {
     botMessage: null,
@@ -177,9 +162,7 @@ function initStreamContext() {
   };
 }
 
-// Initial rendering and progressive chunk appending
 function handleStreamChunk(chunk, ctx) {
-  // 1st chunk: removes the indicator and prepares the containers
   if (!ctx.botMessage) {
     chatLog.removeChild(ctx.typingIndicator);
     ctx.botMessage = createBotMessage();
@@ -219,8 +202,6 @@ function handleStreamChunk(chunk, ctx) {
 }
 
 /* ─────────── FINAL RENDERING ─────────── */
-
-// Splits reasoning and XML output (if present)
 function splitReasoningOutput(raw) {
   const xmlStart = raw.search(/<\?xml|<bpmn:definitions/i);
   return xmlStart !== -1
@@ -228,12 +209,10 @@ function splitReasoningOutput(raw) {
     : { reasoning: raw.trim(), output: '' };
 }
 
-// Converts the XML part into a highlighted Markdown block
 function formatXml(xml) {
   return marked.parse('```xml\n' + xml + '\n```');
 }
 
-// Rendering the final message output
 function finalizeBotMessage(ctx, startTime) {
   const { botMessage, fullRaw } = ctx;
 
@@ -265,7 +244,7 @@ function finalizeBotMessage(ctx, startTime) {
       outBlock.className = 'output-block';
       outBlock.innerHTML = formatXml(output);
       botMessage.appendChild(outBlock);
-      hljs.highlightAll();
+      if (typeof hljs !== 'undefined') hljs.highlightAll();
     }
   } else {
     const header = document.createElement('div');
@@ -278,13 +257,12 @@ function finalizeBotMessage(ctx, startTime) {
 
     botMessage.appendChild(header);
     botMessage.appendChild(content);
-    hljs.highlightAll();
+    if (typeof hljs !== 'undefined') hljs.highlightAll();
   }
 
   botMessage.appendChild(buildReplyInfo(startTime));
 }
 
-// Compute the response time and displays it
 function buildReplyInfo(startTime) {
   const elapsed = Math.floor((Date.now() - startTime) / 1000);
   const minutes = Math.floor(elapsed / 60);
@@ -298,8 +276,6 @@ function buildReplyInfo(startTime) {
 }
 
 /* ─────────── BPMN XML PROCESSING ─────────── */
-
-// Imports BPMN if present and shows the outcome to the user
 async function tryImportBpmn(xml) {
   if (!xml) {
     addMsg('No valid BPMN XML found ❌. Please try again.', 'bot');
@@ -316,7 +292,6 @@ async function tryImportBpmn(xml) {
 }
 
 /* ─────────── MAIN PIPELINE FUNCTION ─────────── */
-
 async function sendPrompt(customText = null) {
   const isCustom = customText !== null;
   const txt = isCustom ? customText.trim() : chatInput.value.trim();
@@ -324,20 +299,17 @@ async function sendPrompt(customText = null) {
 
   const startTime = Date.now();
 
-  // reset input field
   if (!isCustom) {
     chatInput.value = '';
     autoResize(chatInput);
   }
 
-  // Shared state of the streaming
   const ctx = initStreamContext();
   ctx.typingIndicator = showTypingIndicator();
 
   try {
     await callModelAPI(txt, chunk => handleStreamChunk(chunk, ctx));
 
-    // final parsing finale and rendering
     finalizeBotMessage(ctx, startTime);
 
     const xmlResponse = extractXmlFromResponse(ctx.fullRaw);
@@ -349,7 +321,6 @@ async function sendPrompt(customText = null) {
   }
 }
 
-
 function extractXmlFromResponse(content) {
   const match = content.match(/<bpmn:definitions[\s\S]*?<\/bpmn:definitions>/);
   return match ? match[0] : null;
@@ -359,13 +330,11 @@ function addBotMessage(text) {
   const msg = document.createElement('div');
   msg.className = 'chat-msg bot';
 
-  // SYSTEM HEADER
   const header = document.createElement('div');
   header.className = 'msg-header';
   header.innerText = 'System';
   msg.appendChild(header);
 
-  // CONTENT (markdown)
   const content = document.createElement('div');
   content.className = 'msg-content';
   content.innerHTML = marked.parse(text);
@@ -374,12 +343,10 @@ function addBotMessage(text) {
   chatLog.appendChild(msg);
   chatLog.scrollTop = chatLog.scrollHeight;
 
-  hljs.highlightAll();
+  if (typeof hljs !== 'undefined') hljs.highlightAll();
 }
 
-
 /* ─────────── EXPORTING BUTTONS HANDLERS ─────────── */
-
 const exportSVGBtn = document.getElementById('exportSVG');
 exportSVGBtn.addEventListener('click', exportSVG);
 
@@ -406,19 +373,17 @@ function download(filename, data) {
   URL.revokeObjectURL(url);
 }
 
-
 /* ─────────── ZOOMING BUTTONS HANDLERS ─────────── */
-
 const zoomInBtn = document.getElementById('zoom-in');
 const zoomOutBtn = document.getElementById('zoom-out');
 const zoomResetBtn = document.getElementById('zoom-reset');
 
 zoomInBtn.addEventListener('click', () => {
-  changeZoom(1.2); // Zoom in by +20%
+  changeZoom(1.2);
 });
 
 zoomOutBtn.addEventListener('click', () => {
-  changeZoom(0.8); // Zoom out by -20%
+  changeZoom(0.8);
 });
 
 zoomResetBtn.addEventListener('click', () => {
@@ -430,15 +395,12 @@ function changeZoom(factor) {
   const currentZoom = canvas.zoom();
   const newZoom = currentZoom * factor;
 
-  // limit min/max zoom
   if (newZoom < 0.2 || newZoom > 4) return;
 
   canvas.zoom(newZoom);
 }
 
-
 /* ─────────── AUTO LAYOUT HANDLER ─────────── */
-
 const autoLayoutBtn = document.getElementById('autoLayout');
 autoLayoutBtn.addEventListener('click', autoLayout);
 
@@ -456,7 +418,6 @@ async function autoLayout() {
       throw new Error('layoutProcess did not return any result');
     }
 
-    // Check if the result il a XML string
     let layoutedXml;
     if (typeof result === 'string') {
       layoutedXml = result;
@@ -479,15 +440,12 @@ async function autoLayout() {
 const fullscreenBtn = document.getElementById('toggleFullscreen');
 fullscreenBtn.addEventListener('click', toggleFullscreen);
 
-
 // Send button click
 const sendBtn = document.getElementById('send-btn');
 sendBtn.addEventListener('click', sendMSG);
 
 // reasoner toggle
 const modelToggle = document.getElementById('model-toggle');
-let modelStatus = document.getElementById('model-status');
-
 
 modelToggle.addEventListener('click', () => {
   const isReasonerOn = modelStatus.textContent.trim().toLowerCase() === 'on';
@@ -497,24 +455,23 @@ modelToggle.addEventListener('click', () => {
   modelToggle.classList.toggle('active', newStatus === 'On');
 });
 
-
 // Template popup
 const templateLink = document.getElementById('template-link');
 const templatePopup = document.getElementById('template-popup');
 
-templateLink.addEventListener('click', e => {
-  e.preventDefault();
-  templatePopup.classList.toggle('visible');
-});
-document.addEventListener('click', e => {
-  if (!templatePopup.contains(e.target) && !templateLink.contains(e.target)) {
-    templatePopup.classList.remove('visible');
-  }
-});
+if (templateLink && templatePopup) {
+  templateLink.addEventListener('click', e => {
+    e.preventDefault();
+    templatePopup.classList.toggle('visible');
+  });
+  document.addEventListener('click', e => {
+    if (!templatePopup.contains(e.target) && !templateLink.contains(e.target)) {
+      templatePopup.classList.remove('visible');
+    }
+  });
+}
 
 /* ─────────── DRAG & DROP HANDLERS ─────────── */
-
-// Prevent default behavior on the window
 ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
   window.addEventListener(eventName, e => {
     e.preventDefault();
@@ -522,7 +479,6 @@ document.addEventListener('click', e => {
   }, { passive: false });
 });
 
-// Custom drag&drop behavior
 ['dragenter', 'dragover'].forEach(ev => fileDrop.addEventListener(ev, e => {
   e.preventDefault();
   fileDrop.classList.add('dragover');
@@ -546,105 +502,103 @@ fileInput.addEventListener('change', e => {
   handleFiles(e.target.files);
 });
 
-
 /* ─────────── FILE INPUT HANDLER ─────────── */
-
 function handleFiles(list) {
-      [...list].forEach(file => {
-        const reader = new FileReader();
+  [...list].forEach(file => {
+    const reader = new FileReader();
 
-          if (file.type.startsWith('text/')) {
-            // Text files (.txt)
-            reader.onload = function(e) {
-              const textContent = e.target.result;
-              const safeContent = textContent.replace(/\n/g, '<br>');
-              addMsg(`📎 <b>${file.name} (${Math.round(file.size/1024)} KB) added.</b> <br><br> 📄 <b>The file contains the following text:</b><br><div style="background:#f8f9fa;border:1px solid #ddd;border-radius:8px;padding:10px;font-family:monospace;font-size:0.9rem;"><em>${textContent}</em></div>`, 'user');
-              sendPrompt(textContent);
-            };
-            reader.readAsText(file);
-          } else if (file.type.startsWith('image/')) {
-          // Images(.jpg, .png, ecc.)
-            reader.onload = function(e) {
-            const imgSrc = e.target.result;
+    if (file.type.startsWith('text/')) {
+      // Text files (.txt)
+      reader.onload = function(e) {
+        const textContent = e.target.result;
+        addMsg(`📎 <b>${file.name} (${Math.round(file.size/1024)} KB) added.</b> <br><br> 📄 <b>The file contains the following text:</b><br><div style="background:#f8f9fa;border:1px solid #ddd;border-radius:8px;padding:10px;font-family:monospace;font-size:0.9rem;"><em>${textContent}</em></div>`, 'user');
+        sendPrompt(textContent);
+      };
+      reader.readAsText(file);
+    } else if (file.type.startsWith('image/')) {
+      // Images(.jpg, .png, ecc.)
+      reader.onload = function(e) {
+        const imgSrc = e.target.result;
 
-            // Create a container element with a temporary loading message
-            const messageContainer = document.createElement('div');
-            messageContainer.className = 'chat-msg user';
+        const messageContainer = document.createElement('div');
+        messageContainer.className = 'chat-msg user';
+        messageContainer.innerHTML = `
+          <strong>🖼️ ${file.name} (${Math.round(file.size / 1024)} KB) added.</strong><br>
+          <img src="${imgSrc}" style="max-width:50%;border-radius:8px;margin-top:8px;"><br><br>
+          <em>📄 OCR Processing:</em><br>
+          <div class="typing-indicator"><span></span><span></span><span></span></div>
+        `;
+        chatLog.appendChild(messageContainer);
+        chatLog.scrollTop = chatLog.scrollHeight;
+
+        if (typeof Tesseract !== 'undefined') {
+          Tesseract.recognize(
+            imgSrc,
+            'eng+ita',
+            { logger: m => console.log(m) }
+          ).then(({ data: { text } }) => {
+            const recognizedText = text.trim();
+            const formattedText = recognizedText ? recognizedText : 'No text detected.';
+
             messageContainer.innerHTML = `
               <strong>🖼️ ${file.name} (${Math.round(file.size / 1024)} KB) added.</strong><br>
               <img src="${imgSrc}" style="max-width:50%;border-radius:8px;margin-top:8px;"><br><br>
-              <em>📄 OCR Processing:</em><br>
-              <div class="typing-indicator"><span></span><span></span><span></span></div>
-            `;
-            chatLog.appendChild(messageContainer);
-            chatLog.scrollTop = chatLog.scrollHeight;
+              <b>📄 OCR Recognized text:</b><br><div style="background:#f8f9fa;border:1px solid #ddd;border-radius:8px;padding:10px;font-family:monospace;font-size:0.9rem;">
+              <em>${formattedText}</em></div>`;
 
-            // Start OCR
-            Tesseract.recognize(
-              imgSrc,
-              'eng+ita',
-              { logger: m => console.log(m) }
-            ).then(({ data: { text } }) => {
-              const recognizedText = text.trim();
-              const formattedText = recognizedText ? recognizedText : 'No text detected.';
-
-              // Replace the loading indicator with the actual OCR result
-              messageContainer.innerHTML = `
-                <strong>🖼️ ${file.name} (${Math.round(file.size / 1024)} KB) added.</strong><br>
-                <img src="${imgSrc}" style="max-width:50%;border-radius:8px;margin-top:8px;"><br><br>
-                <b>📄 OCR Recognized text:</b><br><div style="background:#f8f9fa;border:1px solid #ddd;border-radius:8px;padding:10px;font-family:monospace;font-size:0.9rem;">
-                <em>${formattedText}</em></div>`;
-
-              if (recognizedText) {
-                sendPrompt(recognizedText);
-              }
-            }).catch(error => {
-              console.error('OCR error:', error);
-              messageContainer.innerHTML += `<br><span style="color:red;">❌ Failed to read text from image.</span>`;
-            });
-          };
-            reader.readAsDataURL(file);
-          } else if (file.type === 'application/pdf') {
-            const reader = new FileReader();
-            reader.onload = async function(e) {
-              const typedarray = new Uint8Array(e.target.result);
-
-              const pdf = await pdfjsLib.getDocument(typedarray).promise;
-              let fullText = '';
-
-              for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-                const page = await pdf.getPage(pageNum);
-                const content = await page.getTextContent();
-                const strings = content.items.map(item => item.str);
-                fullText += strings.join(' ') + '\n\n';
-              }
-
-              console.log('Extracted text from PDF:', fullText);
-
-              addMsg(`<strong><i class="fa-solid fa-file-pdf"></i> ${file.name} (${Math.round(file.size/1024)} KB) added.</strong><br><br><b><em>Extracted PDF text:</em></b><br><div style="background:#f8f9fa;border:1px solid #ddd;border-radius:8px;padding:10px;font-family:monospace;font-size:0.9rem;"><em>${fullText.replace(/\n/g, '<br>')}</em></div>`, 'user');
-
-              if (fullText.trim()) {
-                sendPrompt(fullText);
-              } else {
-                addMsg('❌ No text found in the PDF.', 'bot');
-              }
-            };
-            reader.readAsArrayBuffer(file);
-          } else {
-          // Other kind of files
-          addMsg(`📎 ${file.name} (${Math.round(file.size/1024)} KB) added (unsupported file type).`, 'user');
+            if (recognizedText) {
+              sendPrompt(recognizedText);
+            }
+          }).catch(error => {
+            console.error('OCR error:', error);
+            messageContainer.innerHTML += `<br><span style="color:red;">❌ Failed to read text from image.</span>`;
+          });
+        } else {
+           messageContainer.innerHTML += `<br><span style="color:red;">❌ OCR library not loaded.</span>`;
         }
-      });
+      };
+      reader.readAsDataURL(file);
+    } else if (file.type === 'application/pdf') {
+      const reader = new FileReader();
+      reader.onload = async function(e) {
+        if (typeof pdfjsLib === 'undefined') {
+           addMsg('❌ PDF library not loaded.', 'bot');
+           return;
+        }
+        const typedarray = new Uint8Array(e.target.result);
+        const pdf = await pdfjsLib.getDocument(typedarray).promise;
+        let fullText = '';
+
+        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+          const page = await pdf.getPage(pageNum);
+          const content = await page.getTextContent();
+          const strings = content.items.map(item => item.str);
+          fullText += strings.join(' ') + '\n\n';
+        }
+
+        addMsg(`<strong><i class="fa-solid fa-file-pdf"></i> ${file.name} (${Math.round(file.size/1024)} KB) added.</strong><br><br><b><em>Extracted PDF text:</em></b><br><div style="background:#f8f9fa;border:1px solid #ddd;border-radius:8px;padding:10px;font-family:monospace;font-size:0.9rem;"><em>${fullText.replace(/\n/g, '<br>')}</em></div>`, 'user');
+
+        if (fullText.trim()) {
+          sendPrompt(fullText);
+        } else {
+          addMsg('❌ No text found in the PDF.', 'bot');
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      // Other kind of files
+      addMsg(`📎 ${file.name} (${Math.round(file.size/1024)} KB) added (unsupported file type).`, 'user');
     }
+  });
+}
 
 function addMsg(m, w) {
-      const d = document.createElement('div');
-      d.className = 'chat-msg ' + w;
+  const d = document.createElement('div');
+  d.className = 'chat-msg ' + w;
 
-      // support Markdown e safe parsing 
-      d.innerHTML = `<div class="msg-header">${w === 'user' ? 'User' : 'System'}</div><div class="msg-content">${marked.parse(m)}</div>`;  
-      hljs.highlightAll();
+  d.innerHTML = `<div class="msg-header">${w === 'user' ? 'User' : 'System'}</div><div class="msg-content">${marked.parse(m)}</div>`;  
+  if (typeof hljs !== 'undefined') hljs.highlightAll();
 
-      chatLog.appendChild(d);
-      chatLog.scrollTop = chatLog.scrollHeight;
-    }
+  chatLog.appendChild(d);
+  chatLog.scrollTop = chatLog.scrollHeight;
+}
