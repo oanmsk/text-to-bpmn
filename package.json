@@ -13,7 +13,10 @@
     "axios": "^1.7.2",
     "body-parser": "^1.20.2",
     "dotenv": "^16.4.5",
-    "express": "^4.19.2"
+    "express": "^4.19.2",
+    "bpmn-js": "^17.11.1",
+    "bpmnlint": "^10.3.0",
+    "bpmn-moddle": "^9.0.1"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^28.0.0",
