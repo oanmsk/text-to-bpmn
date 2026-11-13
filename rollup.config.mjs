@@ -1,22 +1,19 @@
-// Copyright (c) 2025 Davide Chen
-// SPDX-License-Identifier: MIT
-
-import resolve  from '@rollup/plugin-node-resolve';
+import resolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
-import bpmnlint from 'rollup-plugin-bpmnlint';
-// Изменено: используем новый плагин вместо устаревшего
-import terser from '@rollup/plugin-terser'; 
+import terser from '@rollup/plugin-terser';
 
 export default {
-  input:  'src/app.js',
+  input: 'src/app.js', // Путь к главному файлу фронтенда
   output: {
-    file: 'public/js/bundle-app.js',
-    format: 'esm',
+    file: 'public/js/bundle-app.js', // Куда сохранять готовый файл
+    format: 'iife',
     sourcemap: true
   },
   plugins: [
-    bpmnlint(),
-    resolve(), commonjs(),
+    resolve({
+      browser: true
+    }),
+    commonjs(),
     terser()
   ]
 };
