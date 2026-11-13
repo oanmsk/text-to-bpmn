@@ -4,7 +4,8 @@
 import resolve  from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
 import bpmnlint from 'rollup-plugin-bpmnlint';
-import { terser } from 'rollup-plugin-terser';
+// Изменено: используем новый плагин вместо устаревшего
+import terser from '@rollup/plugin-terser'; 
 
 export default {
   input:  'src/app.js',
