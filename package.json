@@ -1,23 +1,25 @@
 {
   "name": "text-to-bpmn",
   "version": "1.0.0",
-  "description": "Generate executable BPMN 2.0 diagrams from natural language using LLMs",
+  "description": "Text to BPMN 2.0 generator",
   "main": "server.js",
   "type": "module",
   "scripts": {
-    "build": "rollup -c rollup.config.mjs",
     "start": "node server.js",
+    "build": "rollup -c rollup.config.mjs",
     "dev": "nodemon server.js"
   },
   "dependencies": {
+    "bpmn-js": "^17.11.1",
+    "cors": "^2.8.5",
     "dotenv": "^16.4.5",
-    "express": "^4.19.2"
+    "express": "^4.21.1"
   },
   "devDependencies": {
-    "@rollup/plugin-commonjs": "^25.0.7",
-    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@rollup/plugin-commonjs": "^28.0.1",
+    "@rollup/plugin-node-resolve": "^15.3.0",
     "@rollup/plugin-terser": "^0.4.4",
-    "nodemon": "^3.1.0",
-    "rollup": "^4.13.0"
+    "nodemon": "^3.1.7",
+    "rollup": "^4.26.0"
   }
 }
